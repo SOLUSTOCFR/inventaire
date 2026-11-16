@@ -255,8 +255,83 @@
     var f = ev.target.files && ev.target.files[0]; ev.target.value = "";
     if (!f) return;
     if (photos.length >= (CFG.MAX_PHOTOS || 3)) { toast("Maximum " + (CFG.MAX_PHOTOS || 3) + " photos."); return; }
-    compress(f).then(function (b) { photos.push({ blob: b, url: URL.createObjectURL(b) }); renderThumbs(); })
-      .catch(function () { toast("Photo illisible, réessaie."); });
+    openCrop(f);
+  }
+
+  // ---------- Cadrage de la photo ----------
+  var crop = { url: null, dw: 0, dh: 0, r: { x: 0, y: 0, w: 0, h: 0 }, drag: null };
+
+  function applyCrop() {
+    var s = $("cropRect").style, r = crop.r;
+    s.left = r.x + "px"; s.top = r.y + "px"; s.width = r.w + "px"; s.height = r.h + "px";
+  }
+
+  function openCrop(file) {
+    var im = $("cropImg");
+    if (crop.url) URL.revokeObjectURL(crop.url);
+    crop.url = URL.createObjectURL(file);
+    im.onload = function () {
+      $("cropDlg").showModal();
+      var measure = function (n) {
+        crop.dw = im.clientWidth; crop.dh = im.clientHeight; // lire la taille force la mise en page
+        if (!(crop.dw > 0 && crop.dh > 0) && n < 20) { setTimeout(function () { measure(n + 1); }, 50); return; }
+        crop.r = { x: crop.dw * 0.06, y: crop.dh * 0.06, w: crop.dw * 0.88, h: crop.dh * 0.88 };
+        applyCrop();
+      };
+      measure(0);
+    };
+    im.onerror = function () { toast("Photo illisible, réessaie."); };
+    im.src = crop.url;
+  }
+
+  function closeCrop() {
+    try { $("cropDlg").close(); } catch (e) {}
+    if (crop.url) { URL.revokeObjectURL(crop.url); crop.url = null; }
+    $("cropImg").removeAttribute("src");
+  }
+
+  function cropMove(e) {
+    var d = crop.drag; if (!d) return;
+    var dx = e.clientX - d.sx, dy = e.clientY - d.sy, r = d.r, MIN = 48, W = crop.dw, H = crop.dh;
+    var x1 = r.x, y1 = r.y, x2 = r.x + r.w, y2 = r.y + r.h;
+    if (d.mode === "move") {
+      var nx = Math.min(Math.max(r.x + dx, 0), W - r.w), ny = Math.min(Math.max(r.y + dy, 0), H - r.h);
+      crop.r = { x: nx, y: ny, w: r.w, h: r.h };
+    } else {
+      if (d.mode.indexOf("l") >= 0) x1 = Math.min(Math.max(r.x + dx, 0), x2 - MIN);
+      if (d.mode.indexOf("r") >= 0) x2 = Math.max(Math.min(x2 + dx, W), x1 + MIN);
+      if (d.mode.indexOf("t") >= 0) y1 = Math.min(Math.max(r.y + dy, 0), y2 - MIN);
+      if (d.mode.indexOf("b") >= 0) y2 = Math.max(Math.min(y2 + dy, H), y1 + MIN);
+      crop.r = { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
+    }
+    applyCrop();
+  }
+
+  function cropDone(full) {
+    var im = $("cropImg"), k = im.naturalWidth / crop.dw, r = full ? { x: 0, y: 0, w: crop.dw, h: crop.dh } : crop.r;
+    var sx = Math.round(r.x * k), sy = Math.round(r.y * k), sw = Math.round(r.w * k), sh = Math.round(r.h * k);
+    var side = CFG.PHOTO_MAX_SIDE || 1600, s = Math.min(1, side / Math.max(sw, sh));
+    var cv = document.createElement("canvas"); cv.width = Math.max(1, Math.round(sw * s)); cv.height = Math.max(1, Math.round(sh * s));
+    cv.getContext("2d").drawImage(im, sx, sy, sw, sh, 0, 0, cv.width, cv.height);
+    cv.toBlob(function (b) {
+      closeCrop();
+      if (!b) { toast("Photo illisible, réessaie."); return; }
+      photos.push({ blob: b, url: URL.createObjectURL(b) }); renderThumbs();
+    }, "image/jpeg", CFG.PHOTO_QUALITY || 0.72);
+  }
+
+  function bindCrop() {
+    $("cropRect").addEventListener("pointerdown", function (e) {
+      e.preventDefault();
+      crop.drag = { mode: e.target.getAttribute("data-h") || "move", sx: e.clientX, sy: e.clientY, r: { x: crop.r.x, y: crop.r.y, w: crop.r.w, h: crop.r.h } };
+      try { $("cropRect").setPointerCapture(e.pointerId); } catch (x) {}
+    });
+    $("cropRect").addEventListener("pointermove", cropMove);
+    ["pointerup", "pointercancel"].forEach(function (t) { $("cropRect").addEventListener(t, function () { crop.drag = null; }); });
+    $("cropOk").onclick = function () { cropDone(false); };
+    $("cropFull").onclick = function () { cropDone(true); };
+    $("cropCancel").onclick = closeCrop;
+    $("cropDlg").addEventListener("cancel", function (e) { e.preventDefault(); closeCrop(); });
   }
 
   function saveLine(ev) {
@@ -468,6 +543,7 @@
 
   // ---------- Branchements ----------
   function bind() {
+    bindCrop();
     $("loginBtn").onclick = doLogin;
     $("loginCode").addEventListener("keydown", function (e) { if (e.key === "Enter") doLogin(); });
     $("newPalBtn").onclick = createPalette;

@@ -148,6 +148,17 @@
   <button id="scanClose" class="secondary big">Fermer</button>
 </dialog>
 
+<dialog id="cropDlg">
+  <h3 style="margin-top:0">Cadre la photo</h3>
+  <p class="muted small">Déplace le cadre ou tire sur les coins pour ne garder que l'article.</p>
+  <div class="cropbox"><div id="cropWrap"><img id="cropImg" alt="">
+    <div id="cropRect"><i class="h tl" data-h="tl"></i><i class="h tr" data-h="tr"></i><i class="h bl" data-h="bl"></i><i class="h br" data-h="br"></i></div>
+  </div></div>
+  <button id="cropOk" type="button" class="primary big">✔ Valider le cadrage</button>
+  <button id="cropFull" type="button" class="secondary big">Garder la photo entière</button>
+  <button id="cropCancel" type="button" class="link big">Annuler</button>
+</dialog>
+
 <dialog id="menuDlg">
   <h3>Menu</h3>
   <button id="mSync" class="secondary big">Envoyer maintenant</button>

@@ -1,6 +1,6 @@
 // Service worker : fait tourner l'appli sans réseau (les fichiers de l'appli sont gardés sur le téléphone).
 // Augmenter VERSION à chaque mise à jour de l'appli pour que les téléphones rechargent les nouveaux fichiers.
-var VERSION = "inv-v2";
+var VERSION = "inv-v3";
 var SHELL = ["./", "index.html", "style.css", "app.js", "config.js", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", function (e) {

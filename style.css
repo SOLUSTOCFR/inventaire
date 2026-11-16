@@ -71,6 +71,14 @@ input:focus,textarea:focus{outline:2px solid var(--brand);outline-offset:1px}
 dialog{border:1px solid var(--line);border-radius:16px;background:var(--card);color:var(--ink);width:min(92vw,420px);padding:16px}
 dialog::backdrop{background:rgba(0,0,0,.6)}
 #reader{width:100%;min-height:200px;border-radius:12px;overflow:hidden;background:#000}
+#cropDlg{max-height:94vh;overflow:auto}
+.cropbox{text-align:center}
+#cropWrap{position:relative;display:inline-block;overflow:hidden;touch-action:none;max-width:100%;line-height:0;background:#000}
+#cropImg{display:block;max-width:100%;max-height:52vh;user-select:none;-webkit-user-drag:none}
+#cropRect{position:absolute;border:2px solid #fff;box-shadow:0 0 0 9999px rgba(0,0,0,.55);cursor:move;touch-action:none}
+#cropRect .h{position:absolute;width:30px;height:30px;background:var(--brand);border:2px solid #fff;border-radius:50%}
+#cropRect .tl{left:-8px;top:-8px}#cropRect .tr{right:-8px;top:-8px}
+#cropRect .bl{left:-8px;bottom:-8px}#cropRect .br{right:-8px;bottom:-8px}
 .spread{justify-content:space-between;align-items:center;gap:8px}
 .primary.small{min-height:40px;padding:8px 14px;font-size:15px}
 .banner.okb{border-color:var(--ok);color:var(--ok)}
