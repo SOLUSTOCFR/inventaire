@@ -64,8 +64,8 @@
       <div><strong id="artPal"></strong> <span id="artPalStats" class="muted"></span></div>
       <button type="button" id="closeBtn" class="primary small">✔ Terminer</button>
     </div>
-    <div id="closedBox" class="banner okb" hidden>✔ Palette terminée et verrouillée.
-      <button type="button" id="reopenBtn" class="link">Rouvrir</button></div>
+    <div id="closedBox" class="banner okb" hidden>✔ Palette terminée.
+      <button type="button" id="reopenBtn" class="link">✏️ Modifier / rajouter des articles</button></div>
 
     <form id="artForm" autocomplete="off">
       <div id="editBanner" class="banner" hidden>Modification d'un article déjà saisi.
@@ -106,6 +106,7 @@
           <input id="fVrac" type="number" inputmode="numeric" min="0" step="1">
         </label>
       </div>
+      <label class="check"><input id="fRetrait" type="checkbox"> ↩ Retirer cette quantité <span class="muted">(correction d'une erreur : le total devient négatif)</span></label>
 
       <div id="totalBox" class="total">
         <div><span class="lbl">Total pièces</span> <strong id="tTotal">0</strong></div>

@@ -217,7 +217,7 @@
   function updateTotal() {
     var ppc = num($("fPpc").value), c = num($("fCartons").value), v = num($("fVrac").value),
         cpp = num($("fCpp").value), pr = num($("fPrix").value);
-    var total = ppc * c + v;
+    var total = (ppc * c + v) * ($("fRetrait").checked ? -1 : 1);
     $("tTotal").textContent = fmt(total);
     $("tPal").textContent = (cpp > 0 && c > 0) ? ("≈ " + fmt(Math.round(c / cpp * 100) / 100) + " palette(s) à " + fmt(cpp) + " colis") : "";
     $("tVal").textContent = (pr > 0 && total > 0) ? ("Valeur prix public : " + fmt(Math.round(total * pr * 100) / 100) + " €") : "";
@@ -340,8 +340,9 @@
     var ref = $("fRef").value.trim(), desig = $("fDesig").value.trim();
     var ppc = num($("fPpc").value), cartons = num($("fCartons").value), vrac = num($("fVrac").value);
     if (!ref && !desig) { msg.textContent = "Il faut au moins une référence ou une désignation."; return; }
-    if (!(ppc > 0 && cartons > 0) && !(vrac > 0)) { msg.textContent = "Renseigne pièces par colis × nombre de colis, ou des pièces en vrac."; return; }
-    if (photos.length < 1) { msg.textContent = "Prends au moins une photo."; return; }
+    var retrait = $("fRetrait").checked, base = Math.abs(ppc * cartons + vrac), totalNow = retrait ? -base : base;
+    if (base === 0) { msg.textContent = "Renseigne pièces par colis × nombre de colis, ou des pièces en vrac."; return; }
+    if (photos.length < 1 && !retrait) { msg.textContent = "Prends au moins une photo."; return; } // un retrait n'exige pas de photo
 
     getAll("lines").then(function (all) {
       var existing = editingId ? all.filter(function (l) { return l.id === editingId; })[0] : null;
@@ -355,7 +356,7 @@
       line.ppc = ppc; line.cartons = cartons; line.vrac = vrac; line.cpp = num($("fCpp").value);
       line.prix = num($("fPrix").value); line.client = $("fClient").value.trim().toUpperCase();
       line.comment = $("fComment").value.trim();
-      line.total = ppc * cartons + vrac;
+      line.total = totalNow; line.retrait = retrait;
       line.photos = photos.map(function (p) { return p.blob; });
       line.photoNames = line.photos.map(function (b, i) {
         return clean(line.lot + "_" + line.palette + "_" + line.seq + "_" + line.id.slice(0, 5) + "_" + (i + 1)) + ".jpg";
@@ -390,6 +391,7 @@
       resetForm(false); editingId = id;
       $("fRef").value = l.ref || ""; $("fDesig").value = l.designation || ""; $("fDluo").value = l.dluo || "";
       $("fPpc").value = l.ppc || ""; $("fCartons").value = l.cartons || ""; $("fVrac").value = l.vrac || "";
+      $("fRetrait").checked = !!l.retrait;
       $("fCpp").value = l.cpp || ""; $("fPrix").value = l.prix || ""; $("fClient").value = l.client || ""; $("fComment").value = l.comment || "";
       photos = (l.photos || []).map(function (b) { return { blob: b, url: URL.createObjectURL(b) }; });
       renderThumbs(); updateTotal();
@@ -488,7 +490,7 @@
         line: {
           id: l.id, lot: l.lot, palette: l.palette, seq: l.seq, client: l.client, ref: l.ref, designation: l.designation,
           dluo: l.dluo, ppc: l.ppc, cartons: l.cartons, vrac: l.vrac, cpp: l.cpp, prix: l.prix, total: l.total,
-          comment: l.comment, deleted: !!l.deleted, updated: l.updated, helper: l.helper
+          comment: (l.retrait ? "RETRAIT (correction) " : "") + (l.comment || ""), deleted: !!l.deleted, updated: l.updated, helper: l.helper
         },
         photos: l.deleted ? [] : urls.map(function (u, i) { return { name: l.photoNames[i], data: u }; })
       };
@@ -554,6 +556,7 @@
     $("backBtn").onclick = function () { $("barTitle").textContent = "Palettes"; show("vPalettes"); renderPalettes(); };
     $("artForm").addEventListener("submit", saveLine);
     ["fPpc", "fCartons", "fCpp", "fVrac", "fPrix"].forEach(function (id) { $(id).addEventListener("input", updateTotal); });
+    $("fRetrait").addEventListener("change", updateTotal);
     $("fPhoto").addEventListener("change", onPhoto); $("fPhotoGal").addEventListener("change", onPhoto);
     $("scanBtn").onclick = openScan; $("scanClose").onclick = closeScan;
     $("scanDlg").addEventListener("cancel", function (e) { e.preventDefault(); closeScan(); });
