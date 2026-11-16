@@ -232,7 +232,9 @@
       b.onclick = function () { URL.revokeObjectURL(p.url); photos.splice(i, 1); renderThumbs(); };
       d.appendChild(im); d.appendChild(b); $("thumbs").appendChild(d);
     });
-    $("aiBtn").hidden = !(photos.length >= 1 && CFG.SCRIPT_URL);
+    $("aiBtn").hidden = !CFG.SCRIPT_URL;
+    $("aiBtn").disabled = photos.length < 1;
+    $("aiBtn").textContent = photos.length < 1 ? "✨ Lire l'étiquette (IA) — prends d'abord une photo" : "✨ Lire l'étiquette (IA)";
     var full = photos.length >= (CFG.MAX_PHOTOS || 3);
     $("photoBtn").classList.toggle("disabled", full); $("photoBtn2").classList.toggle("disabled", full);
   }
@@ -289,7 +291,7 @@
       if (filled) { msg.className = "msg ok"; msg.textContent = "✨ Lu par IA : vérifie les champs en jaune avant d'enregistrer."; }
       else msg.textContent = "Rien de lisible sur cette photo. Tape à la main ou reprends la photo.";
     }).catch(function () { msg.textContent = "Lecture impossible (réseau). Tape à la main."; })
-      .then(function () { btn.disabled = false; btn.textContent = "✨ Lire l'étiquette (IA)"; });
+      .then(function () { btn.disabled = photos.length < 1; btn.textContent = "✨ Lire l'étiquette (IA)"; });
   }
 
   // ---------- Cadrage de la photo ----------

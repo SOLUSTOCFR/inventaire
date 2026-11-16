@@ -84,6 +84,7 @@ label.check input{width:24px;height:24px;min-height:0;margin:0;flex:none}
 input.ai,textarea.ai{background:#fff6cc;border-color:#d4a800}
 @media (prefers-color-scheme: dark){input.ai,textarea.ai{background:#3a3210;border-color:#a88a00}}
 #aiBtn{margin-top:8px}
+#aiBtn:disabled{opacity:.55;cursor:default}
 #aiMsg.ok{color:var(--ok)}
 .spread{justify-content:space-between;align-items:center;gap:8px}
 .primary.small{min-height:40px;padding:8px 14px;font-size:15px}
