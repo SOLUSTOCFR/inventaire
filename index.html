@@ -60,9 +60,12 @@
 
   <!-- 3. Article -->
   <section id="vArticle" class="view" hidden>
-    <div class="palhead">
+    <div class="palhead row spread">
       <div><strong id="artPal"></strong> <span id="artPalStats" class="muted"></span></div>
+      <button type="button" id="closeBtn" class="primary small">✔ Terminer</button>
     </div>
+    <div id="closedBox" class="banner okb" hidden>✔ Palette terminée et verrouillée.
+      <button type="button" id="reopenBtn" class="link">Rouvrir</button></div>
 
     <form id="artForm" autocomplete="off">
       <div id="editBanner" class="banner" hidden>Modification d'un article déjà saisi.

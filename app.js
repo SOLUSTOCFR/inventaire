@@ -54,6 +54,7 @@
   function saveSession() { try { localStorage.setItem("inv_session", JSON.stringify(session)); } catch (e) {} }
 
   // ---------- État ----------
+  var currentClosed = false;   // la palette ouverte est-elle terminée ?
   var currentPalette = null;   // nom
   var editingId = null;        // id de la ligne en cours de modification
   var photos = [];             // [{blob, url}] du formulaire
@@ -135,7 +136,8 @@
         var ls = lines.filter(function (l) { return l.palette === p.name; });
         var tot = ls.reduce(function (a, l) { return a + l.total; }, 0);
         return '<li class="tap" data-pal="' + esc(p.name) + '"><div><div class="t">' + esc(p.name) +
-          '</div><div class="s">' + ls.length + " article(s) · " + fmt(tot) + ' pièces</div></div><div>›</div></li>';
+          '</div><div class="s">' + ls.length + " article(s) · " + fmt(tot) + ' pièces <span class="tag ' +
+          (p.closed ? "sent" : "pending") + '">' + (p.closed ? "terminée ✓" : "en cours") + '</span></div></div><div>›</div></li>';
       }).join("");
     });
   }
@@ -155,7 +157,53 @@
   function openPalette(name) {
     currentPalette = name; editingId = null;
     $("artPal").textContent = name; $("barTitle").textContent = name;
-    resetForm(); show("vArticle"); renderLines();
+    getAll("palettes").then(function (all) {
+      var p = all.filter(function (x) { return x.id === palId(session.lot, name); })[0];
+      currentClosed = !!(p && p.closed);
+      applyClosed(); resetForm(); show("vArticle"); renderLines();
+    });
+  }
+
+  function applyClosed() {
+    $("artForm").hidden = currentClosed;
+    $("closedBox").hidden = !currentClosed;
+    $("closeBtn").hidden = currentClosed;
+  }
+
+  // Palette suivante : AD 1-1 → AD 1-2 ; DAM 1 → DAM 2 ; sans numéro → ajoute « 2 ».
+  function nextName(n) {
+    var m = /^(.*?)(\d+)(\s*)$/.exec(n);
+    return m ? m[1] + (parseInt(m[2], 10) + 1) + m[3] : n + " 2";
+  }
+
+  function setPaletteState(name, closed) {
+    var id = palId(session.lot, name);
+    return getAll("palettes").then(function (all) {
+      var p = all.filter(function (x) { return x.id === id; })[0] || { id: id, lot: session.lot, name: name, created: Date.now() };
+      p.closed = closed; p.closedAt = closed ? Date.now() : null; p.sync = "pending";
+      return put("palettes", p);
+    });
+  }
+
+  function closePalette() {
+    getAll("lines").then(function (all) {
+      var ls = all.filter(function (l) { return l.lot === session.lot && l.palette === currentPalette && !l.deleted; });
+      if (!ls.length) { toast("Aucun article dans cette palette."); return; }
+      var tot = ls.reduce(function (a, l) { return a + l.total; }, 0);
+      if (!confirm("Terminer la palette " + currentPalette + " ?\n" + ls.length + " article(s), " + fmt(tot) +
+        " pièces.\nElle sera verrouillée (tu pourras la rouvrir si besoin).")) return;
+      return setPaletteState(currentPalette, true).then(function () {
+        var done = currentPalette, next = nextName(done);
+        toast("Palette " + done + " terminée ✓");
+        show("vPalettes"); renderPalettes(); $("newPalName").value = next; updateChip(); sync();
+      });
+    });
+  }
+
+  function reopenPalette() {
+    setPaletteState(currentPalette, false).then(function () {
+      currentClosed = false; applyClosed(); renderLines(); updateChip(); sync();
+    });
   }
 
   function resetForm(keepClient) {
@@ -256,7 +304,7 @@
         return '<li data-id="' + esc(l.id) + '"><div><div class="t">' + esc(l.designation || l.ref) + '</div><div class="s">' +
           (l.ref ? esc(l.ref) + " · " : "") + fmt(l.total) + " pièces · " + (l.photos ? l.photos.length : 0) + ' photo(s) <span class="tag ' +
           (l.sync === "sent" ? "sent" : "pending") + '">' + (l.sync === "sent" ? "envoyé" : "à envoyer") + '</span></div></div>' +
-          '<div class="acts"><button data-act="edit" aria-label="Modifier">✏️</button><button data-act="del" aria-label="Supprimer">🗑️</button></div></li>';
+          (currentClosed ? "" : '<div class="acts"><button data-act="edit" aria-label="Modifier">✏️</button><button data-act="del" aria-label="Supprimer">🗑️</button></div>') + '</li>';
       }).join("");
     });
   }
@@ -319,8 +367,36 @@
 
   function pendingLines() { return getAll("lines").then(function (all) { return all.filter(function (l) { return l.sync === "pending"; }); }); }
 
+  function pendingCount() {
+    return Promise.all([pendingLines(), getAll("palettes")]).then(function (r) {
+      return r[0].length + r[1].filter(function (p) { return p.sync === "pending"; }).length;
+    });
+  }
+
+  function syncPalettes() {
+    return getAll("palettes").then(function (all) {
+      var p = all.filter(function (x) { return x.sync === "pending"; })[0];
+      if (!p) return;
+      return getAll("lines").then(function (ls) {
+        ls = ls.filter(function (l) { return l.lot === p.lot && l.palette === p.name && !l.deleted; });
+        var tot = ls.reduce(function (a, l) { return a + l.total; }, 0), ver = JSON.stringify([p.closed, p.closedAt]);
+        return call({ action: "palette", code: session.code, helper: session.name,
+          palette: { lot: p.lot, name: p.name, closed: !!p.closed, closedAt: p.closedAt, articles: ls.length, pieces: tot } })
+          .then(function (r) {
+            if (!r || !r.ok) { lastError = (r && r.error) || "réponse invalide"; throw new Error("stop"); }
+            lastError = "";
+            return getAll("palettes").then(function (a2) {
+              var cur = a2.filter(function (x) { return x.id === p.id; })[0];
+              if (cur && JSON.stringify([cur.closed, cur.closedAt]) === ver) { cur.sync = "sent"; return put("palettes", cur); }
+            });
+          }).then(function () { return syncPalettes(); });
+      });
+    });
+  }
+
   function updateChip() {
-    pendingLines().then(function (p) {
+    pendingCount().then(function (n) {
+      var p = { length: n };
       var c = $("syncChip");
       if (!CFG.SCRIPT_URL) { c.textContent = "Local seulement"; return; }
       if (lastError && p.length) c.textContent = "⚠ " + p.length + " à envoyer";
@@ -350,7 +426,7 @@
     syncing = true;
     var loop = function () {
       return pendingLines().then(function (list) {
-        if (!list.length) return;
+        if (!list.length) return syncPalettes();
         var l = list[0], stamp = l.updated;
         return sendOne(l).then(function (r) {
           if (!r || !r.ok) {
@@ -422,7 +498,8 @@
       });
     };
     window.addEventListener("online", sync);
-    setInterval(function () { pendingLines().then(function (p) { if (p.length) sync(); }); }, 25000);
+    $("closeBtn").onclick = closePalette; $("reopenBtn").onclick = reopenPalette;
+    setInterval(function () { pendingCount().then(function (n) { if (n) sync(); }); }, 25000);
   }
 
   // ---------- Démarrage ----------
