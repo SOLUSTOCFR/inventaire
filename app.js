@@ -77,7 +77,7 @@
       return '<option value="' + esc(c[0]) + '">' + esc(c[1]) + "</option>";
     }).join("");
     var s = loadSession();
-    if (s) { $("loginName").value = s.name || ""; $("loginLot").value = s.lot || ""; }
+    if (s) { $("loginLot").value = s.lot || ""; }
     else if (CFG.LOTS && CFG.LOTS[0]) $("loginLot").value = CFG.LOTS[0];
   }
 
@@ -87,11 +87,12 @@
   }
 
   function doLogin() {
-    var name = clean($("loginName").value), code = $("loginCode").value.trim(), lot = clean($("loginLot").value).toUpperCase();
+    var name = "", code = $("loginCode").value.trim(), lot = clean($("loginLot").value).toUpperCase();
     var msg = $("loginMsg"); msg.textContent = ""; msg.className = "msg";
-    if (!name || !lot || (!code && CFG.SCRIPT_URL)) { msg.textContent = "Prénom, code et lot sont obligatoires."; return; }
+    if (!lot || (!code && CFG.SCRIPT_URL)) { msg.textContent = "Le code et le lot sont obligatoires."; return; }
     var btn = $("loginBtn"); btn.disabled = true; btn.textContent = "Vérification…";
-    var done = function (offline) {
+    var done = function (offline, nomCode) {
+      name = nomCode || name || "Inconnu";
       session = { name: name, code: code, lot: lot };
       saveSession();
       btn.disabled = false; btn.textContent = "Commencer";
@@ -102,7 +103,7 @@
     var fail = function (m) { btn.disabled = false; btn.textContent = "Commencer"; msg.textContent = m; };
     if (!CFG.SCRIPT_URL) { done(false); return; }
     call({ action: "check", code: code, helper: name }).then(function (r) {
-      if (r && r.ok) done(false); else fail("Code refusé. Vérifie-le auprès de Brice.");
+      if (r && r.ok) done(false, r.name); else fail("Code refusé. Vérifie-le auprès de Brice.");
     }).catch(function () {
       // Pas de réseau : on laisse commencer, le code sera contrôlé à l'envoi.
       if (!navigator.onLine) done(true); else fail("Le relais ne répond pas. Réessaie dans un instant.");

@@ -32,11 +32,8 @@
   <section id="vLogin" class="view">
     <h1>Inventaire Solustoc</h1>
     <p class="muted">Accès réservé. Le code t'a été donné par Brice.</p>
-    <label>Ton prénom
-      <input id="loginName" type="text" autocomplete="given-name" placeholder="ex. Karim">
-    </label>
-    <label>Code d'accès
-      <input id="loginCode" type="password" autocomplete="off" autocapitalize="off" placeholder="code reçu">
+    <label>Ton code d'accès
+      <input id="loginCode" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="ex. Loic01">
     </label>
     <label>Lot
       <input id="loginLot" type="text" list="lotList" autocapitalize="characters" placeholder="ex. SST-398">
@@ -143,7 +140,7 @@
   </section>
 </main>
 
-<p id="ver" class="muted small center" style="margin:0 0 24px">Version 6</p>
+<p id="ver" class="muted small center" style="margin:0 0 24px">Version 7</p>
 <div id="toast" role="status" aria-live="polite"></div>
 
 <dialog id="scanDlg">
