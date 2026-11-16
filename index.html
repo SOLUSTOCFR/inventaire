@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f4c81">
+<meta name="robots" content="noindex, nofollow">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Inventaire Solustoc</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header id="bar" hidden>
+  <div class="bar-left">
+    <button id="backBtn" class="icon" aria-label="Retour" hidden>←</button>
+    <div>
+      <div id="barTitle">Inventaire</div>
+      <div id="barSub" class="sub"></div>
+    </div>
+  </div>
+  <div class="bar-right">
+    <button id="syncChip" class="chip" type="button">…</button>
+    <button id="menuBtn" class="icon" aria-label="Menu">⋮</button>
+  </div>
+</header>
+
+<main>
+  <!-- 1. Connexion -->
+  <section id="vLogin" class="view">
+    <h1>Inventaire Solustoc</h1>
+    <p class="muted">Accès réservé. Le code t'a été donné par Brice.</p>
+    <label>Ton prénom
+      <input id="loginName" type="text" autocomplete="given-name" placeholder="ex. Karim">
+    </label>
+    <label>Code d'accès
+      <input id="loginCode" type="password" autocomplete="off" autocapitalize="off" placeholder="code reçu">
+    </label>
+    <label>Lot
+      <input id="loginLot" type="text" list="lotList" autocapitalize="characters" placeholder="ex. SST-398">
+      <datalist id="lotList"></datalist>
+    </label>
+    <button id="loginBtn" class="primary big">Commencer</button>
+    <p id="loginMsg" class="msg" role="alert"></p>
+  </section>
+
+  <!-- 2. Palettes -->
+  <section id="vPalettes" class="view" hidden>
+    <h2>Palettes</h2>
+    <div class="row gap">
+      <input id="newPalName" type="text" placeholder="Nom de la palette (ex. DAM 1)" autocapitalize="characters">
+      <button id="newPalBtn" class="primary">Créer</button>
+    </div>
+    <p id="palMsg" class="msg" role="alert"></p>
+    <ul id="palList" class="cards"></ul>
+    <p id="palEmpty" class="muted" hidden>Aucune palette pour l'instant. Donne un nom à la première et crée-la.</p>
+  </section>
+
+  <!-- 3. Article -->
+  <section id="vArticle" class="view" hidden>
+    <div class="palhead">
+      <div><strong id="artPal"></strong> <span id="artPalStats" class="muted"></span></div>
+    </div>
+
+    <form id="artForm" autocomplete="off">
+      <div id="editBanner" class="banner" hidden>Modification d'un article déjà saisi.
+        <button type="button" id="cancelEdit" class="link">Annuler</button></div>
+
+      <label>Référence / code-barres
+        <div class="row gap">
+          <input id="fRef" type="text" inputmode="text" autocapitalize="characters" placeholder="Scanner ou taper">
+          <button type="button" id="scanBtn" class="secondary">📷 Scanner</button>
+        </div>
+      </label>
+
+      <div class="photos">
+        <div id="thumbs" class="thumbs"></div>
+        <label class="photoBtn" id="photoBtn">📸 Prendre une photo
+          <input id="fPhoto" type="file" accept="image/*" capture="environment" hidden>
+        </label>
+        <label class="photoBtn light" id="photoBtn2">🖼️ Choisir dans la galerie
+          <input id="fPhotoGal" type="file" accept="image/*" hidden>
+        </label>
+      </div>
+
+      <label>Désignation (telle qu'écrite sur le carton ou le produit)
+        <textarea id="fDesig" rows="2" placeholder="Recopier tel quel"></textarea>
+      </label>
+
+      <div class="grid2">
+        <label>Pièces par colis
+          <input id="fPpc" type="number" inputmode="numeric" min="0" step="1">
+        </label>
+        <label>Nombre de colis
+          <input id="fCartons" type="number" inputmode="numeric" min="0" step="1">
+        </label>
+        <label>Colis par palette
+          <input id="fCpp" type="number" inputmode="numeric" min="0" step="1">
+        </label>
+        <label>Pièces en vrac
+          <input id="fVrac" type="number" inputmode="numeric" min="0" step="1">
+        </label>
+      </div>
+
+      <div id="totalBox" class="total">
+        <div><span class="lbl">Total pièces</span> <strong id="tTotal">0</strong></div>
+        <div id="tPal" class="muted"></div>
+        <div id="tVal" class="muted"></div>
+      </div>
+
+      <div class="grid2">
+        <label>DLUO / DLC
+          <input id="fDluo" type="text" placeholder="ex. 03/2027">
+        </label>
+        <label>Prix public unitaire (€)
+          <input id="fPrix" type="number" inputmode="decimal" min="0" step="0.01">
+        </label>
+      </div>
+
+      <label>Client / origine <span class="muted">(facultatif)</span>
+        <input id="fClient" type="text" list="clientList" autocapitalize="characters">
+        <datalist id="clientList"></datalist>
+      </label>
+
+      <label>Commentaire <span class="muted">(abîmé, ouvert, mélangé…)</span>
+        <input id="fComment" type="text">
+      </label>
+
+      <p id="artMsg" class="msg" role="alert"></p>
+      <button type="submit" id="saveBtn" class="primary big">Enregistrer et article suivant</button>
+    </form>
+
+    <h3>Articles de cette palette</h3>
+    <ul id="lineList" class="cards"></ul>
+  </section>
+</main>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<dialog id="scanDlg">
+  <div id="reader"></div>
+  <p id="scanMsg" class="muted center">Place le code-barres dans le cadre.</p>
+  <button id="scanClose" class="secondary big">Fermer</button>
+</dialog>
+
+<dialog id="menuDlg">
+  <h3>Menu</h3>
+  <button id="mSync" class="secondary big">Envoyer maintenant</button>
+  <button id="mCsv" class="secondary big">Sauvegarde sur le téléphone (CSV)</button>
+  <button id="mLogout" class="secondary big">Changer de personne / de lot</button>
+  <button id="mClose" class="link big">Fermer</button>
+  <p class="muted small" id="mInfo"></p>
+</dialog>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
