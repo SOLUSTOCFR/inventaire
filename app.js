@@ -211,7 +211,7 @@
     $("artForm").reset(); $("fClient").value = c;
     photos.forEach(function (p) { URL.revokeObjectURL(p.url); }); photos = [];
     editingId = null; $("editBanner").hidden = true; $("saveBtn").textContent = "Enregistrer et article suivant";
-    $("artMsg").textContent = ""; renderThumbs(); updateTotal();
+    $("artMsg").textContent = ""; clearAi(); renderThumbs(); updateTotal();
   }
 
   function updateTotal() {
@@ -232,6 +232,7 @@
       b.onclick = function () { URL.revokeObjectURL(p.url); photos.splice(i, 1); renderThumbs(); };
       d.appendChild(im); d.appendChild(b); $("thumbs").appendChild(d);
     });
+    $("aiBtn").hidden = !(photos.length >= 1 && CFG.SCRIPT_URL);
     var full = photos.length >= (CFG.MAX_PHOTOS || 3);
     $("photoBtn").classList.toggle("disabled", full); $("photoBtn2").classList.toggle("disabled", full);
   }
@@ -256,6 +257,39 @@
     if (!f) return;
     if (photos.length >= (CFG.MAX_PHOTOS || 3)) { toast("Maximum " + (CFG.MAX_PHOTOS || 3) + " photos."); return; }
     openCrop(f);
+  }
+
+  // ---------- Lecture de l'étiquette par IA ----------
+  function clearAi() {
+    ["fRef", "fDesig", "fPpc", "fDluo"].forEach(function (id) { $(id).classList.remove("ai"); });
+    $("aiMsg").textContent = ""; $("aiMsg").className = "msg";
+  }
+
+  var AI_ERR = {
+    NO_KEY: "La lecture par IA n'est pas encore activée. Tape à la main.",
+    PLAFOND_JOUR: "Limite de lectures IA atteinte pour aujourd'hui. Tape à la main.",
+    CODE_INVALIDE: "Code refusé : reconnecte-toi.",
+    IA_401: "La clé de l'IA est refusée. Préviens Brice.", IA_402: "Plus de crédit sur le compte IA. Préviens Brice.",
+    IA_429: "L'IA est saturée, réessaie dans un instant."
+  };
+
+  function readLabel() {
+    if (!photos.length) { return; }
+    if (!navigator.onLine) { $("aiMsg").textContent = "Pas de réseau : la lecture IA est impossible, tape à la main."; return; }
+    var btn = $("aiBtn"), msg = $("aiMsg"); clearAi();
+    btn.disabled = true; btn.textContent = "Lecture en cours…";
+    blobToDataUrl(photos[photos.length - 1].blob).then(function (url) {
+      return call({ action: "ocr", code: session.code, image: url });
+    }).then(function (r) {
+      if (!r || !r.ok) { msg.textContent = AI_ERR[r && r.error] || ("Lecture impossible (" + ((r && r.error) || "erreur") + "). Tape à la main."); return; }
+      var d = r.data || {}, filled = 0;
+      var put2 = function (id, v) { if (v) { $(id).value = v; $(id).classList.add("ai"); filled++; } };
+      put2("fRef", d.ref); put2("fDesig", d.designation); put2("fPpc", d.ppc || ""); put2("fDluo", d.dluo);
+      updateTotal();
+      if (filled) { msg.className = "msg ok"; msg.textContent = "✨ Lu par IA : vérifie les champs en jaune avant d'enregistrer."; }
+      else msg.textContent = "Rien de lisible sur cette photo. Tape à la main ou reprends la photo.";
+    }).catch(function () { msg.textContent = "Lecture impossible (réseau). Tape à la main."; })
+      .then(function () { btn.disabled = false; btn.textContent = "✨ Lire l'étiquette (IA)"; });
   }
 
   // ---------- Cadrage de la photo ----------
@@ -578,6 +612,10 @@
     };
     window.addEventListener("online", sync);
     $("closeBtn").onclick = closePalette; $("reopenBtn").onclick = reopenPalette;
+    $("aiBtn").onclick = readLabel;
+    ["fRef", "fDesig", "fPpc", "fDluo"].forEach(function (id) {
+      $(id).addEventListener("input", function () { $(id).classList.remove("ai"); });
+    });
     setInterval(function () { pendingCount().then(function (n) { if (n) sync(); }); }, 25000);
   }
 
