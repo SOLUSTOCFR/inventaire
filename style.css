@@ -48,6 +48,8 @@ input:focus,textarea:focus{outline:2px solid var(--brand);outline-offset:1px}
 .cards .t{font-weight:700}
 .cards .s{font-size:13px;color:var(--muted)}
 .cards .acts{display:flex;gap:4px}
+.cards .acts{align-items:center}
+.cards .acts button.delPal{margin-right:6px}
 .cards .acts button{background:transparent;border:1px solid var(--line);color:var(--ink);border-radius:8px;min-height:40px;min-width:40px}
 .tag{font-size:12px;border-radius:999px;padding:2px 8px;border:1px solid var(--line);color:var(--muted)}
 .tag.pending{color:var(--warn);border-color:var(--warn)}

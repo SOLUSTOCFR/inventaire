@@ -125,10 +125,12 @@
 
   function renderPalettes() {
     Promise.all([getAll("palettes"), getAll("lines")]).then(function (r) {
-      var pals = r[0].filter(function (p) { return p.lot === session.lot; });
+      var allPals = r[0].filter(function (p) { return p.lot === session.lot; });
+      var pals = allPals.filter(function (p) { return !p.deleted; });
       var lines = r[1].filter(function (l) { return l.lot === session.lot && !l.deleted; });
-      // palettes vues uniquement par les lignes (sécurité)
+      // palettes vues uniquement par les lignes (sécurité) — sauf si la palette a été supprimée
       lines.forEach(function (l) {
+        if (allPals.some(function (p) { return p.name === l.palette && p.deleted; })) return;
         if (!pals.some(function (p) { return p.name === l.palette; })) pals.push({ id: palId(l.lot, l.palette), lot: l.lot, name: l.palette, created: l.created });
       });
       pals.sort(function (a, b) { return (b.created || 0) - (a.created || 0); });
@@ -138,7 +140,8 @@
         var tot = ls.reduce(function (a, l) { return a + l.total; }, 0);
         return '<li class="tap" data-pal="' + esc(p.name) + '"><div><div class="t">' + esc(p.name) +
           '</div><div class="s">' + ls.length + " article(s) · " + fmt(tot) + ' pièces <span class="tag ' +
-          (p.closed ? "sent" : "pending") + '">' + (p.closed ? "terminée ✓" : "en cours") + '</span></div></div><div>›</div></li>';
+          (p.closed ? "sent" : "pending") + '">' + (p.closed ? "terminée ✓" : "en cours") + '</span></div></div><div class="acts"><button type="button" class="delPal" data-delpal="' +
+          esc(p.name) + '" aria-label="Supprimer la palette ' + esc(p.name) + '">🗑</button><span>›</span></div></li>';
       }).join("");
     });
   }
@@ -149,7 +152,16 @@
     getAll("palettes").then(function (all) {
       var exists = all.some(function (p) { return p.id === palId(session.lot, name); });
       var go = function () { $("newPalName").value = ""; openPalette(name); };
-      if (exists) { go(); return; }
+      if (exists) {
+        // palette supprimée puis recréée sous le même nom : on la remet à zéro
+        var old = all.filter(function (p) { return p.id === palId(session.lot, name); })[0];
+        if (old && old.deleted) {
+          old.deleted = false; old.closed = false; old.closedAt = null; old.created = Date.now(); old.sync = "pending";
+          put("palettes", old).then(function () { sync(); go(); });
+          return;
+        }
+        go(); return;
+      }
       put("palettes", { id: palId(session.lot, name), lot: session.lot, name: name, created: Date.now() }).then(go);
     });
   }
@@ -197,6 +209,30 @@
         var done = currentPalette, next = nextName(done);
         toast("Palette " + done + " terminée ✓");
         show("vPalettes"); renderPalettes(); $("newPalName").value = next; updateChip(); sync();
+      });
+    });
+  }
+
+  // Supprime une palette et tous ses articles (sur le téléphone et, à l'envoi, dans le Sheet : lignes « SUPPRIMÉ »).
+  function deletePalette(name) {
+    getAll("lines").then(function (all) {
+      var ls = all.filter(function (l) { return l.lot === session.lot && l.palette === name && !l.deleted; });
+      var msg = "Supprimer la palette " + name + " ?\n" +
+        (ls.length ? ls.length + " article(s) seront supprimés avec elle." : "Elle est vide.") + "\nCette action est définitive.";
+      if (!confirm(msg)) return;
+      var now = Date.now();
+      return Promise.all(all.filter(function (l) { return l.lot === session.lot && l.palette === name && !l.deleted; }).map(function (l) {
+        l.deleted = true; l.sync = "pending"; l.updated = now; return put("lines", l);
+      })).then(function () {
+        return getAll("palettes");
+      }).then(function (pals) {
+        var id = palId(session.lot, name);
+        var p = pals.filter(function (x) { return x.id === id; })[0] || { id: id, lot: session.lot, name: name, created: now };
+        p.deleted = true; p.sync = "pending";
+        return put("palettes", p);
+      }).then(function () {
+        toast("Palette " + name + " supprimée");
+        renderPalettes(); updateChip(); sync();
       });
     });
   }
@@ -493,15 +529,15 @@
       if (!p) return;
       return getAll("lines").then(function (ls) {
         ls = ls.filter(function (l) { return l.lot === p.lot && l.palette === p.name && !l.deleted; });
-        var tot = ls.reduce(function (a, l) { return a + l.total; }, 0), ver = JSON.stringify([p.closed, p.closedAt]);
+        var tot = ls.reduce(function (a, l) { return a + l.total; }, 0), ver = JSON.stringify([p.closed, p.closedAt, !!p.deleted]);
         return call({ action: "palette", code: session.code, helper: session.name,
-          palette: { lot: p.lot, name: p.name, closed: !!p.closed, closedAt: p.closedAt, articles: ls.length, pieces: tot } })
+          palette: { lot: p.lot, name: p.name, closed: !!p.closed, closedAt: p.closedAt, articles: ls.length, pieces: tot, deleted: !!p.deleted } })
           .then(function (r) {
             if (!r || !r.ok) { lastError = (r && r.error) || "réponse invalide"; throw new Error("stop"); }
             lastError = "";
             return getAll("palettes").then(function (a2) {
               var cur = a2.filter(function (x) { return x.id === p.id; })[0];
-              if (cur && JSON.stringify([cur.closed, cur.closedAt]) === ver) { cur.sync = "sent"; return put("palettes", cur); }
+              if (cur && JSON.stringify([cur.closed, cur.closedAt, !!cur.deleted]) === ver) { cur.sync = "sent"; return put("palettes", cur); }
             });
           }).then(function () { return syncPalettes(); });
       });
@@ -588,6 +624,8 @@
     $("newPalBtn").onclick = createPalette;
     $("newPalName").addEventListener("keydown", function (e) { if (e.key === "Enter") createPalette(); });
     $("palList").addEventListener("click", function (e) {
+      var del = e.target.closest("button[data-delpal]");
+      if (del) { e.stopPropagation(); deletePalette(del.getAttribute("data-delpal")); return; }
       var li = e.target.closest("li[data-pal]"); if (li) openPalette(li.getAttribute("data-pal"));
     });
     $("backBtn").onclick = function () { $("barTitle").textContent = "Palettes"; show("vPalettes"); renderPalettes(); };
